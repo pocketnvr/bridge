@@ -1,7 +1,7 @@
 configuration:
   frigate_url:
     name: Adresse von Frigate
-    description: Leer lassen, wenn Frigate das Add-on von Home Assistant ist (Port 8971 in dessen Abschnitt Netzwerk aktiviert). Die Bridge verwendet dann die Adresse von Home Assistant. Sonst die IP von Frigate und Port 8971 (z. B. https://192.168.1.20:8971).
+    description: Leer lassen, wenn Frigate das Add-on von Home Assistant ist (Port 8971 in dessen Abschnitt Netzwerk aktiviert). Sonst die vollständige Adresse mit http:// oder https:// und Port 8971, z. B. https://192.168.1.20:8971. Die IP statt eines Domainnamens verwenden, und http://, wenn TLS in Frigate ausgeschaltet ist.
   public_host:
     name: Öffentliche Adresse
     description: Optional. DynDNS-Name oder feste öffentliche IP. Wird automatisch erkannt, wenn leer.
@@ -10,13 +10,13 @@ configuration:
     description: Öffnet den UDP-Port auf dem Router automatisch.
   wg_port:
     name: WireGuard-Port
-    description: Optional. UDP-Port, auf dem die Bridge lauscht (standardmäßig 51820).
+    description: Optional. UDP-Port der Bridge (Standard 51820). 51821 eintragen, wenn ein anderes WireGuard-Add-on 51820 bereits nutzt (im Protokoll steht „address already in use“).
   public_port:
     name: Öffentlicher Port
     description: Optional. Vom Internet aus sichtbarer UDP-Port, falls Sie einen anderen weiterleiten.
   web_port:
     name: Port der Administrationsseite
-    description: Optional. Port der Administrationsseite (standardmäßig 8765).
+    description: Optional. Port der Verwaltungsseite (Standard 8765). Im Heimnetz mit der lokalen IP von Home Assistant öffnen, http://IP:8765. Über einen Domainnamen oder Nabu Casa ist sie nicht erreichbar.
   allowed_hosts:
     name: Erlaubte Hostnamen
     description: Optional. Zusätzliche Namen, die für die Administrationsseite akzeptiert werden, durch Kommas getrennt.

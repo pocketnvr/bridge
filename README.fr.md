@@ -84,6 +84,11 @@ La page d'administration (en français, en anglais, en allemand, en espagnol, en
 
 | Situation | Solution |
 |---|---|
+| Journal : `FRIGATE_URL="..." invalid` | Écrivez l'adresse complète, avec `http://` ou `https://` et le port : `https://192.168.1.20:8971`. |
+| Journal : `bind: address already in use` | Un autre programme utilise déjà le port UDP 51820, souvent l'application WireGuard. Mettez `wg_port` (`WG_PORT` avec Docker) à `51821`. Dans Home Assistant, activez « Afficher les options de configuration facultatives inutilisées » pour le voir. |
+| « Ouvrir l'interface web » ne charge pas | Vous accédez à Home Assistant par un nom de domaine ou par Nabu Casa, et la page d'administration ne répond que sur le réseau local. À la maison, ouvrez `http://<IP locale de Home Assistant>:8765`. |
+| Appli : « first record does not look like a TLS handshake » | Frigate répond en HTTP simple sur le port 8971 (TLS désactivé dans Frigate). Mettez `http://` dans `frigate_url`, redémarrez, puis **Nouveau QR**. Le tunnel chiffre toujours tout. |
+| Appli : Frigate ne répond pas, adresse finissant par `:8765` | 8765 est la page d'administration du Bridge. L'adresse de Frigate utilise son propre port, en général 8971. |
 | « Ouverture automatique du port impossible » | Activez l'UPnP sur la box, ou redirigez vous-même le port UDP indiqué vers la machine du Bridge. |
 | « Double NAT » | Un autre routeur est devant votre box (ou l'inverse). Redirigez le port UDP sur le routeur de tête. |
 | « Votre opérateur partage peut-être l'adresse IPv4 » | Votre opérateur partage votre IPv4 avec d'autres abonnés : aucune connexion entrante n'est possible. Demandez une IPv4 complète (souvent gratuit, depuis l'espace abonné), ou utilisez Tailscale avec le mode « Adresse directe » de l'appli. |
