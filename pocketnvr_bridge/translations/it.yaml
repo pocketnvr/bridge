@@ -1,7 +1,7 @@
 configuration:
   frigate_url:
     name: Indirizzo di Frigate
-    description: Lasciare vuoto se Frigate è il componente aggiuntivo di Home Assistant (porta 8971 attivata nella sua sezione Rete). Altrimenti l'indirizzo completo con http:// o https:// e la porta 8971, per esempio https://192.168.1.20:8971. Usare l'IP invece di un nome di dominio, e http:// se il TLS è disattivato in Frigate.
+    description: Lasciare vuoto se Frigate è il componente aggiuntivo di Home Assistant (porta 8971 attivata nella sua sezione Rete). Altrimenti l'IP e la porta di Frigate, per esempio 192.168.1.20:8971. Il Bridge rileva da solo se Frigate risponde in HTTP o HTTPS.
   public_host:
     name: Indirizzo pubblico
     description: Facoltativo. Nome DNS dinamico o IP pubblico fisso. Rilevato automaticamente se vuoto.
@@ -10,13 +10,13 @@ configuration:
     description: Apre automaticamente la porta UDP sul router.
   wg_port:
     name: Porta WireGuard
-    description: Facoltativo. Porta UDP del Bridge (51820 per impostazione predefinita). Impostare 51821 se un altro componente WireGuard usa già la 51820 (il registro mostra «address already in use»).
+    description: Facoltativo. Porta UDP del Bridge. Lasciare vuoto e il Bridge usa la 51820, o la porta libera successiva se un altro componente WireGuard la usa già.
   public_port:
     name: Porta pubblica
     description: Facoltativo. Porta UDP vista da Internet, se ne inoltra un'altra.
   web_port:
     name: Porta della pagina di amministrazione
-    description: Facoltativo. Porta della pagina di amministrazione (8765 per impostazione predefinita). Aprirla dalla rete di casa con l'IP locale di Home Assistant, http://IP:8765. Un nome di dominio o Nabu Casa non permette di raggiungerla.
+    description: Facoltativo. Porta della pagina di amministrazione (8765 per impostazione predefinita, usata da «Apri interfaccia web»). Cambiarla solo se un altro programma usa la 8765.
   allowed_hosts:
     name: Nomi host consentiti
     description: Facoltativo. Nomi aggiuntivi accettati per la pagina di amministrazione, separati da virgole.

@@ -69,9 +69,9 @@ Lost phone: **Delete**. Its access is cut immediately.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `FRIGATE_URL` | (required; Home Assistant add-on: Frigate add-on on port 8971) | Frigate's address **with its IP**, port 8971: `https://IP:8971`. If Frigate runs on the same machine, `https://localhost:8971` works too. **Avoid port 5000**: it has no authentication, and every phone you add would be a Frigate admin. |
+| `FRIGATE_URL` | (required; Home Assistant add-on: Frigate add-on on port 8971) | Frigate's address **with its IP**, port 8971: `IP:8971` (the Bridge finds out whether Frigate answers in HTTP or HTTPS). If Frigate runs on the same machine, `https://localhost:8971` works too. **Avoid port 5000**: it has no authentication, and every phone you add would be a Frigate admin. |
 | `PUBLIC_HOST` | detected | Dynamic DNS name (e.g. `home.duckdns.org`) or static public IP. Recommended if your IP changes. |
-| `WG_PORT` | `51820` | UDP port the Bridge listens on. |
+| `WG_PORT` | `51820`, or the next free port | UDP port the Bridge listens on. Empty: 51820, or the next free one if another program uses it (the Bridge keeps it). |
 | `PUBLIC_PORT` | = `WG_PORT` | UDP port seen from the Internet (if you forward a different port on the router). |
 | `WEB_PORT` | `8765` | Admin page (local network). |
 | `UPNP` | `true` | Opens the port on the router automatically. |
@@ -84,10 +84,8 @@ The admin page (English, French, German, Spanish, Italian or Dutch, following th
 
 | Situation | Fix |
 |---|---|
-| Log: `FRIGATE_URL="..." invalid` | Write the full address, with `http://` or `https://` and the port: `https://192.168.1.20:8971`. |
-| Log: `bind: address already in use` | Another program already uses UDP port 51820, often the WireGuard add-on. Set `wg_port` (`WG_PORT` with Docker) to `51821`. In Home Assistant, turn on "Show unused optional configuration options" to see it. |
-| "Open web UI" doesn't load | You reach Home Assistant through a domain name or Nabu Casa, and the admin page only answers on the local network. From home, open `http://<Home Assistant's local IP>:8765`. |
-| App: "first record does not look like a TLS handshake" | Frigate answers in plain HTTP on port 8971 (TLS turned off in Frigate). Put `http://` in `frigate_url`, restart, then **New QR**. The tunnel still encrypts everything. |
+| Log: `WireGuard on UDP port ... address already in use` | `wg_port` is set to a port another program already uses, often the WireGuard add-on. Empty `wg_port`: the Bridge then picks a free port by itself (Docker: remove `WG_PORT`). |
+| App: "first record does not look like a TLS handshake" | The phone was set up before Bridge 1.1.1, and Frigate answers in plain HTTP. Use **New QR**, or update PocketNVR. |
 | App: Frigate doesn't answer, address ending in `:8765` | 8765 is the Bridge's admin page. Frigate's address uses its own port, usually 8971. |
 | "Couldn't open the port automatically" / "No UPnP router answered" | Turn on UPnP on the router, or forward the UDP port shown to the Bridge machine yourself. |
 | "Double NAT" | Another router sits in front of yours (or the other way round). Forward the UDP port on the upstream router. |

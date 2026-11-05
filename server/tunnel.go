@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/netip"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -65,9 +66,13 @@ func startTunnel(cfg *Config, store *Store) (*Tunnel, error) {
 		dev.Close()
 		return nil, err
 	}
-	if err := dev.IpcSet(fmt.Sprintf("private_key=%s\nlisten_port=%d\n", key, cfg.WGPort)); err != nil {
+	if err := dev.IpcSet(fmt.Sprintf("private_key=%s\n", key)); err != nil {
 		dev.Close()
-		return nil, fmt.Errorf("UDP port %d unavailable? %w", cfg.WGPort, err)
+		return nil, err
+	}
+	if err := t.listen(); err != nil {
+		dev.Close()
+		return nil, err
 	}
 	if err := t.SyncPhones(); err != nil {
 		dev.Close()
@@ -75,7 +80,7 @@ func startTunnel(cfg *Config, store *Store) (*Tunnel, error) {
 	}
 	if err := dev.Up(); err != nil {
 		dev.Close()
-		return nil, err
+		return nil, fmt.Errorf("WireGuard on UDP port %d: %w (another WireGuard? set wg_port or WG_PORT to a free port)", cfg.WGPort, err)
 	}
 
 	t.ln, err = tnet.ListenTCP(&net.TCPAddr{IP: net.IP(cfg.phoneIP.AsSlice()), Port: int(cfg.frigatePort)})
@@ -85,6 +90,62 @@ func startTunnel(cfg *Config, store *Store) (*Tunnel, error) {
 	}
 	go t.serve()
 	return t, nil
+}
+
+func wgPortCandidates(configured int, set bool, saved int) []int {
+	if set {
+		return []int{configured}
+	}
+	var out []int
+	add := func(p int) {
+		if p > 0 && p <= 65535 && !slices.Contains(out, p) {
+			out = append(out, p)
+		}
+	}
+	add(saved)
+	for p := configured; p < configured+10; p++ {
+		add(p)
+	}
+	return out
+}
+
+func udpFree(port int) bool {
+	pc, err := net.ListenPacket("udp4", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return false
+	}
+	pc.Close()
+	return true
+}
+
+func (t *Tunnel) listen() error {
+	cfg := t.cfg
+	saved := t.store.WGPort()
+	candidates := wgPortCandidates(cfg.WGPort, cfg.wgPortSet, saved)
+	chosen := candidates[0]
+	if len(candidates) > 1 {
+		chosen = 0
+		for _, p := range candidates {
+			if udpFree(p) {
+				chosen = p
+				break
+			}
+		}
+		if chosen == 0 {
+			return fmt.Errorf("UDP ports %d to %d all in use: set wg_port (WG_PORT) to a free port", cfg.WGPort, cfg.WGPort+9)
+		}
+		if chosen != cfg.WGPort && chosen != saved {
+			log.Printf("UDP port %d already in use (another WireGuard?): using %d", cfg.WGPort, chosen)
+		}
+	}
+	if err := t.dev.IpcSet(fmt.Sprintf("listen_port=%d\n", chosen)); err != nil {
+		return err
+	}
+	cfg.WGPort = chosen
+	if !cfg.publicPortSet {
+		cfg.PublicPort = chosen
+	}
+	return t.store.SetWGPort(chosen)
 }
 
 func (t *Tunnel) SyncPhones() error {
@@ -280,7 +341,7 @@ AllowedIPs = %s/32
 PersistentKeepalive = 25
 
 # PocketNVR url=%s
-`, phonePrivateKey, phone.Address, serverPublicKey, endpoint, cfg.phoneIP, cfg.phoneURL)
+`, phonePrivateKey, phone.Address, serverPublicKey, endpoint, cfg.phoneIP, cfg.PhoneURL())
 }
 
 func b64ToHex(k string) (string, error) {

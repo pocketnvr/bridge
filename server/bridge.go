@@ -39,7 +39,7 @@ func New(cfg *Config) (*Bridge, error) {
 		store:  store,
 		tun:    tun,
 		pub:    newPublicAddr(cfg),
-		health: &FrigateHealth{addr: cfg.forwardAddr},
+		health: &FrigateHealth{addr: cfg.forwardAddr, cfg: cfg},
 		lanIP:  "cette machine",
 	}
 	if ip, err := primaryLANAddr(); err == nil {

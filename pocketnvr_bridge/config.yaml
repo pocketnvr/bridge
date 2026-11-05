@@ -1,5 +1,5 @@
 name: PocketNVR Bridge
-version: "1.1.0"
+version: "1.1.1"
 slug: pocketnvr_bridge
 description: Encrypted remote access to Frigate for the PocketNVR app, without exposing Frigate to the Internet.
 url: https://github.com/pocketnvr/bridge
@@ -11,7 +11,10 @@ init: false
 startup: application
 boot: auto
 host_network: true
-webui: "http://[HOST]:[PORT:8765]"
+ingress: true
+ingress_port: 8765
+panel_icon: mdi:cctv
+panel_title: PocketNVR
 ports:
   8765/tcp: 8765
   51820/udp: 51820

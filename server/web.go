@@ -94,7 +94,7 @@ func (w *Web) Handler() http.Handler {
 	mux.HandleFunc("GET /phones/{id}/conf", w.auth(w.confFile))
 	mux.HandleFunc("GET /api/status", w.auth(w.apiStatus))
 	mux.HandleFunc("GET /import/{token}", w.importConf)
-	return securityHeaders(w.localOnly(mux))
+	return w.securityHeaders(w.localOnly(mux))
 }
 
 func (w *Web) localOnly(h http.Handler) http.Handler {
@@ -107,7 +107,7 @@ func (w *Web) localOnly(h http.Handler) http.Handler {
 			http.Error(rw, tr(langOf(r), "err.lanOnly"), http.StatusForbidden)
 			return
 		}
-		if !w.hostAllowed(r.Host) {
+		if _, ingress := w.ingressBase(r); !ingress && !w.hostAllowed(r.Host) {
 			http.Error(rw, tr(langOf(r), "err.host"), http.StatusMisdirectedRequest)
 			return
 		}
@@ -152,16 +152,43 @@ func (w *Web) hostAllowed(hostport string) bool {
 	return false
 }
 
-func securityHeaders(h http.Handler) http.Handler {
+const supervisorIP = "172.30.32.2"
+
+func (w *Web) ingressBase(r *http.Request) (string, bool) {
+	if !w.cfg.Addon || clientIP(r) != supervisorIP {
+		return "", false
+	}
+	p := strings.TrimRight(r.Header.Get("X-Ingress-Path"), "/")
+	if !strings.HasPrefix(p, "/api/hassio_ingress/") || strings.ContainsAny(p, "\"'<>?#% ") {
+		return "", false
+	}
+	return p, true
+}
+
+func (w *Web) securityHeaders(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		frame, ancestors := "DENY", "'none'"
+		if _, ingress := w.ingressBase(r); ingress {
+			frame, ancestors = "SAMEORIGIN", "'self'"
+		}
 		hd := rw.Header()
-		hd.Set("X-Frame-Options", "DENY")
+		hd.Set("X-Frame-Options", frame)
 		hd.Set("X-Content-Type-Options", "nosniff")
 		hd.Set("Referrer-Policy", "same-origin")
 		hd.Set("Cache-Control", "no-store")
-		hd.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'")
+		hd.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action 'self'; frame-ancestors "+ancestors)
 		h.ServeHTTP(rw, r)
 	})
+}
+
+func (w *Web) redirect(rw http.ResponseWriter, r *http.Request, path string) {
+	base, _ := w.ingressBase(r)
+	http.Redirect(rw, r, base+path, http.StatusSeeOther)
+}
+
+func (w *Web) cookiePath(r *http.Request) string {
+	base, _ := w.ingressBase(r)
+	return base + "/"
 }
 
 func (w *Web) sign(exp int64) string {
@@ -183,15 +210,15 @@ func (w *Web) loggedIn(r *http.Request) bool {
 	return hmac.Equal([]byte(c.Value), []byte(w.sign(exp)))
 }
 
-func (w *Web) startSession(rw http.ResponseWriter) {
+func (w *Web) startSession(rw http.ResponseWriter, r *http.Request) {
 	exp := time.Now().Add(sessionTTL).Unix()
 	http.SetCookie(rw, &http.Cookie{
-		Name: sessionCookie, Value: w.sign(exp), Path: "/",
+		Name: sessionCookie, Value: w.sign(exp), Path: w.cookiePath(r),
 		HttpOnly: true, SameSite: http.SameSiteStrictMode, MaxAge: int(sessionTTL.Seconds()),
 	})
 }
 
-func sameOrigin(r *http.Request) bool {
+func (w *Web) sameOrigin(r *http.Request) bool {
 	src := r.Header.Get("Origin")
 	if src == "" {
 		src = r.Header.Get("Referer")
@@ -200,7 +227,24 @@ func sameOrigin(r *http.Request) bool {
 		return true
 	}
 	u, err := url.Parse(src)
-	return err == nil && u.Host == r.Host
+	if err != nil || u.Host == "" {
+		return false
+	}
+	if u.Host == r.Host {
+		return true
+	}
+	if _, ingress := w.ingressBase(r); ingress {
+		fwd := r.Header.Get("X-Forwarded-Host")
+		if fwd == "" {
+			return true
+		}
+		for _, h := range strings.Split(fwd, ",") {
+			if strings.EqualFold(strings.TrimSpace(h), u.Host) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (w *Web) auth(h http.HandlerFunc) http.HandlerFunc {
@@ -210,10 +254,10 @@ func (w *Web) auth(h http.HandlerFunc) http.HandlerFunc {
 				http.Error(rw, tr(langOf(r), "err.notLoggedIn"), http.StatusUnauthorized)
 				return
 			}
-			http.Redirect(rw, r, "/", http.StatusSeeOther)
+			w.redirect(rw, r, "/")
 			return
 		}
-		if r.Method == http.MethodPost && !sameOrigin(r) {
+		if r.Method == http.MethodPost && !w.sameOrigin(r) {
 			http.Error(rw, tr(langOf(r), "err.badOrigin"), http.StatusForbidden)
 			return
 		}
@@ -288,8 +332,8 @@ func (w *Web) sweep() {
 }
 
 func (w *Web) setup(rw http.ResponseWriter, r *http.Request) {
-	if w.store.AdminHash() != "" || !sameOrigin(r) {
-		http.Redirect(rw, r, "/", http.StatusSeeOther)
+	if w.store.AdminHash() != "" || !w.sameOrigin(r) {
+		w.redirect(rw, r, "/")
 		return
 	}
 	pw, confirm := r.PostFormValue("password"), r.PostFormValue("confirm")
@@ -311,14 +355,14 @@ func (w *Web) setup(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.startSession(rw)
-	http.Redirect(rw, r, "/", http.StatusSeeOther)
+	w.startSession(rw, r)
+	w.redirect(rw, r, "/")
 }
 
 func (w *Web) login(rw http.ResponseWriter, r *http.Request) {
 	key := failureKey(r)
-	if !sameOrigin(r) {
-		http.Redirect(rw, r, "/", http.StatusSeeOther)
+	if !w.sameOrigin(r) {
+		w.redirect(rw, r, "/")
 		return
 	}
 	if !w.reserveAttempt(key) {
@@ -331,16 +375,16 @@ func (w *Web) login(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.forgetAttempts(key)
-	w.startSession(rw)
-	http.Redirect(rw, r, "/", http.StatusSeeOther)
+	w.startSession(rw, r)
+	w.redirect(rw, r, "/")
 }
 
 func (w *Web) logout(rw http.ResponseWriter, r *http.Request) {
-	if w.loggedIn(r) && sameOrigin(r) {
+	if w.loggedIn(r) && w.sameOrigin(r) {
 		_ = w.store.RevokeSessions()
 	}
-	http.SetCookie(rw, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1})
-	http.Redirect(rw, r, "/", http.StatusSeeOther)
+	http.SetCookie(rw, &http.Cookie{Name: sessionCookie, Value: "", Path: w.cookiePath(r), MaxAge: -1})
+	w.redirect(rw, r, "/")
 }
 
 var errNoPublicAddr = errors.New("public address unknown: set PUBLIC_HOST")
@@ -422,7 +466,7 @@ func (w *Web) addPhone(rw http.ResponseWriter, r *http.Request) {
 		w.render(rw, r, pageData{View: "dashboard", Error: issueError(langOf(r), err)})
 		return
 	}
-	http.Redirect(rw, r, "/?new="+url.QueryEscape(p.phoneID), http.StatusSeeOther)
+	w.redirect(rw, r, "/?new="+url.QueryEscape(p.phoneID))
 }
 
 func (w *Web) rekey(rw http.ResponseWriter, r *http.Request) {
@@ -431,7 +475,7 @@ func (w *Web) rekey(rw http.ResponseWriter, r *http.Request) {
 		w.render(rw, r, pageData{View: "dashboard", Error: issueError(langOf(r), err)})
 		return
 	}
-	http.Redirect(rw, r, "/?new="+url.QueryEscape(p.phoneID), http.StatusSeeOther)
+	w.redirect(rw, r, "/?new="+url.QueryEscape(p.phoneID))
 }
 
 func (w *Web) deletePhone(rw http.ResponseWriter, r *http.Request) {
@@ -450,7 +494,7 @@ func (w *Web) deletePhone(rw http.ResponseWriter, r *http.Request) {
 		w.render(rw, r, pageData{View: "dashboard", Error: tr(langOf(r), "err.deleteFailed", err.Error())})
 		return
 	}
-	http.Redirect(rw, r, "/", http.StatusSeeOther)
+	w.redirect(rw, r, "/")
 }
 
 func (w *Web) qr(rw http.ResponseWriter, r *http.Request) {
@@ -507,6 +551,7 @@ type phoneView struct {
 }
 
 type pageData struct {
+	Base        string
 	View        string
 	Error       string
 	Phones      []phoneView
@@ -524,7 +569,7 @@ type pageData struct {
 
 func (w *Web) dashboard(r *http.Request) pageData {
 	stats := w.tun.Stats()
-	d := pageData{View: "dashboard", Endpoint: w.pub.Endpoint(), PhoneURL: w.cfg.phoneURL, WGPort: w.cfg.WGPort, PublicPort: w.cfg.PublicPort}
+	d := pageData{View: "dashboard", Endpoint: w.pub.Endpoint(), PhoneURL: w.cfg.PhoneURL(), WGPort: w.cfg.WGPort, PublicPort: w.cfg.PublicPort}
 	for _, p := range w.store.Phones() {
 		st := stats[p.PublicKey]
 		d.Phones = append(d.Phones, phoneView{
@@ -558,6 +603,11 @@ func (w *Web) dashboard(r *http.Request) pageData {
 }
 
 func (w *Web) importOrigin(r *http.Request) string {
+	if _, ingress := w.ingressBase(r); ingress {
+		if _, err := netip.ParseAddr(w.lanIP); err == nil {
+			return "http://" + net.JoinHostPort(w.lanIP, strconv.Itoa(w.cfg.WebPort))
+		}
+	}
 	host := r.Host
 	if h, _, err := net.SplitHostPort(r.Host); err == nil {
 		host = h
@@ -598,6 +648,7 @@ func (w *Web) render(rw http.ResponseWriter, r *http.Request, d pageData) {
 		d = w.dashboard(r)
 		d.Error = e
 	}
+	d.Base, _ = w.ingressBase(r)
 	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 	rw.Header().Set("Content-Language", langOf(r))
 	rw.Header().Add("Vary", "Accept-Language")

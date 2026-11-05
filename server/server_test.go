@@ -962,3 +962,226 @@ func TestPageLanguage(t *testing.T) {
 		}
 	}
 }
+
+func TestFrigateURLWithoutScheme(t *testing.T) {
+	for _, c := range []struct {
+		in, out  string
+		explicit bool
+	}{
+		{"192.168.1.20:8971", "https://192.168.1.20:8971", false},
+		{"192.168.1.20", "https://192.168.1.20:8971", false},
+		{" frigate.local:8971/ ", "https://frigate.local:8971", false},
+		{"http://192.168.1.20:5000", "http://192.168.1.20:5000", true},
+		{"", "", true},
+	} {
+		if got, explicit := normalizeFrigateURL(c.in); got != c.out || explicit != c.explicit {
+			t.Errorf("%q: %q %v, want %q %v", c.in, got, explicit, c.out, c.explicit)
+		}
+	}
+
+	clearEnv(t)
+	t.Setenv("DATA_DIR", t.TempDir())
+	t.Setenv("FRIGATE_URL", "192.168.1.20:8971")
+	c, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.PhoneURL() != "https://192.168.1.20:8971" || c.forwardAddr != "192.168.1.20:8971" || c.schemeSet {
+		t.Fatalf("address without scheme: %+v", c)
+	}
+}
+
+func TestProbeScheme(t *testing.T) {
+	plain := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer plain.Close()
+	secure := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer secure.Close()
+	closed, _ := net.Listen("tcp4", "127.0.0.1:0")
+	closedAddr := closed.Addr().String()
+	closed.Close()
+	addr := func(s string) string {
+		u, _ := url.Parse(s)
+		return u.Host
+	}
+
+	ctx := context.Background()
+	for _, c := range []struct{ addr, want string }{
+		{addr(plain.URL), "http"},
+		{addr(secure.URL), "https"},
+		{closedAddr, ""},
+	} {
+		if got := probeScheme(ctx, c.addr); got != c.want {
+			t.Errorf("%s: %q, want %q", c.addr, got, c.want)
+		}
+	}
+
+	cfg := &Config{forwardAddr: addr(plain.URL), phoneURL: "https://192.168.1.20:8971", schemeSet: true}
+	cfg.detectScheme(ctx)
+	if cfg.PhoneURL() != "http://192.168.1.20:8971" {
+		t.Fatalf("Frigate in plain HTTP: %s", cfg.PhoneURL())
+	}
+	cfg.forwardAddr = addr(secure.URL)
+	cfg.detectScheme(ctx)
+	if cfg.PhoneURL() != "https://192.168.1.20:8971" {
+		t.Fatalf("Frigate in HTTPS: %s", cfg.PhoneURL())
+	}
+	cfg.forwardAddr = closedAddr
+	cfg.detectScheme(ctx)
+	if cfg.PhoneURL() != "https://192.168.1.20:8971" {
+		t.Fatalf("Frigate unreachable: the address must stay as it is, got %s", cfg.PhoneURL())
+	}
+}
+
+func TestWGPortCandidates(t *testing.T) {
+	if got := wgPortCandidates(51999, true, 51821); !slices.Equal(got, []int{51999}) {
+		t.Errorf("port set by the user: %v", got)
+	}
+	got := wgPortCandidates(51820, false, 51823)
+	if len(got) != 10 || got[0] != 51823 || got[1] != 51820 || slices.Contains(got[2:], 51823) || got[9] != 51829 {
+		t.Errorf("saved port first, then 51820 to 51829: %v", got)
+	}
+	if got := wgPortCandidates(51820, false, 0); got[0] != 51820 || len(got) != 10 {
+		t.Errorf("no saved port: %v", got)
+	}
+}
+
+func TestWGPortInUse(t *testing.T) {
+	clearEnv(t)
+	busy, err := net.ListenPacket("udp4", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer busy.Close()
+	port := busy.LocalAddr().(*net.UDPAddr).Port
+	if port > 65000 {
+		t.Skip("port too high to try the next ones")
+	}
+	t.Setenv("DATA_DIR", t.TempDir())
+	t.Setenv("FRIGATE_URL", "http://192.168.1.20:5000")
+	t.Setenv("PUBLIC_HOST", "127.0.0.1")
+	t.Setenv("UPNP", "false")
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.WGPort = port
+	b, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.WGPort <= port || cfg.WGPort > port+9 || cfg.PublicPort != cfg.WGPort || b.store.WGPort() != cfg.WGPort {
+		t.Fatalf("busy port %d: WireGuard on %d, public %d, saved %d", port, cfg.WGPort, cfg.PublicPort, b.store.WGPort())
+	}
+	chosen := cfg.WGPort
+	b.Close()
+
+	cfg, _ = LoadConfig()
+	cfg.WGPort = port
+	b, err = New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.WGPort != chosen {
+		t.Fatalf("the port phones were set up with must be kept: %d, want %d", cfg.WGPort, chosen)
+	}
+	b.Close()
+
+	t.Setenv("WG_PORT", fmt.Sprint(port))
+	cfg, _ = LoadConfig()
+	if _, err := New(cfg); err == nil || !strings.Contains(err.Error(), "wg_port") {
+		t.Fatalf("port set by the user and in use: %v", err)
+	}
+}
+
+func TestStalePortWarning(t *testing.T) {
+	cfg := &Config{PublicPort: 51821, WGPort: 51821, forwardAddr: "192.168.1.20:8971"}
+	ok := &UPnPStatus{OK: true, ExternalIP: netip.MustParseAddr("203.0.113.7")}
+	phones := []Phone{
+		{Name: "iPhone de Camille", Endpoint: "203.0.113.7:51820"},
+		{Name: "Pixel", Endpoint: "203.0.113.7:51821"},
+		{Name: "Vieux", Endpoint: ""},
+	}
+	var found []Warning
+	for _, w := range diagnose(langFR, cfg, PublicSnapshot{Configured: "203.0.113.7", IP: netip.MustParseAddr("203.0.113.7")}, ok, true, "", "x", phones) {
+		if strings.Contains(w.Text, "port WireGuard") {
+			found = append(found, w)
+		}
+	}
+	if len(found) != 1 || found[0].Level != "error" || !strings.Contains(found[0].Text, "(iPhone de Camille)") || !strings.Contains(found[0].Text, "51821") {
+		t.Fatalf("phones set up with the former port: %+v", found)
+	}
+}
+
+func TestIngress(t *testing.T) {
+	tb := newTestBridge(t)
+	h := tb.b.web.Handler()
+	const base = "/api/hassio_ingress/AbC-123_x"
+	do := func(method, path, host, remote string, hdr map[string]string, form url.Values) *httptest.ResponseRecorder {
+		var body io.Reader
+		if form != nil {
+			body = strings.NewReader(form.Encode())
+		}
+		r := httptest.NewRequest(method, path, body)
+		r.Host, r.RemoteAddr = host, remote
+		if form != nil {
+			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		}
+		for k, v := range hdr {
+			r.Header.Set(k, v)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, r)
+		return rec
+	}
+	ingress := func(extra map[string]string) map[string]string {
+		m := map[string]string{"X-Ingress-Path": base, "X-Forwarded-Host": "ha.example.com", "Origin": "https://ha.example.com"}
+		for k, v := range extra {
+			m[k] = v
+		}
+		return m
+	}
+
+	if rec := do("GET", "/", "ha.example.com", supervisorIP+":4000", ingress(nil), nil); rec.Code != http.StatusMisdirectedRequest {
+		t.Fatalf("outside Home Assistant, Ingress headers must not be trusted: %d", rec.Code)
+	}
+	tb.cfg.Addon = true
+	if rec := do("GET", "/", "ha.example.com", "192.168.1.50:4000", ingress(nil), nil); rec.Code != http.StatusMisdirectedRequest {
+		t.Fatalf("Ingress headers from another address than the Supervisor: %d", rec.Code)
+	}
+	rec := do("GET", "/", "ha.example.com", supervisorIP+":4000", ingress(nil), nil)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `action="`+base+`/setup"`) || rec.Header().Get("X-Frame-Options") != "SAMEORIGIN" ||
+		!strings.Contains(rec.Header().Get("Content-Security-Policy"), "frame-ancestors 'self'") {
+		t.Fatalf("Ingress page: %d %v", rec.Code, rec.Header())
+	}
+
+	rec = do("POST", "/setup", "172.30.32.1:8765", supervisorIP+":4000", ingress(nil), url.Values{"password": {"correct horse"}, "confirm": {"correct horse"}})
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != base+"/" {
+		t.Fatalf("setup through Ingress: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	var session *http.Cookie
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == sessionCookie {
+			session = c
+		}
+	}
+	if session == nil || session.Path != base+"/" {
+		t.Fatalf("session cookie: %+v", session)
+	}
+	withCookie := ingress(map[string]string{"Cookie": session.Name + "=" + session.Value})
+
+	evil := ingress(map[string]string{"Cookie": session.Name + "=" + session.Value, "Origin": "https://evil.example"})
+	if rec := do("POST", "/phones", "172.30.32.1:8765", supervisorIP+":4000", evil, url.Values{"name": {"x"}}); rec.Code != http.StatusForbidden {
+		t.Fatalf("cross-site post through Ingress: %d", rec.Code)
+	}
+	rec = do("POST", "/phones", "172.30.32.1:8765", supervisorIP+":4000", withCookie, url.Values{"name": {"iPhone de Camille"}})
+	loc := rec.Header().Get("Location")
+	if rec.Code != http.StatusSeeOther || !strings.HasPrefix(loc, base+"/?new=") {
+		t.Fatalf("add phone through Ingress: %d %q", rec.Code, loc)
+	}
+	rec = do("GET", strings.TrimPrefix(loc, base), "172.30.32.1:8765", supervisorIP+":4000", withCookie, nil)
+	page := rec.Body.String()
+	from := url.QueryEscape("http://" + net.JoinHostPort(tb.b.lanIP, fmt.Sprint(tb.cfg.WebPort)) + "/import/")
+	if !strings.Contains(page, `src="`+base+`/phones/`) || !strings.Contains(page, "pocketnvr://import?from="+from) {
+		t.Fatalf("QR and import link through Ingress:\n%s", page)
+	}
+}

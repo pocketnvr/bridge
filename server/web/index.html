@@ -65,7 +65,7 @@
     <h1>PocketNVR <span>Bridge</span></h1>
     <p class="muted">{{t "setup.intro"}}</p>
     {{if .Error}}<p class="note error">{{.Error}}</p>{{end}}
-    <form method="post" action="/setup" class="stack">
+    <form method="post" action="{{.Base}}/setup" class="stack">
       <input type="password" name="password" placeholder="{{t "setup.password"}}" autocomplete="new-password" required minlength="8" autofocus>
       <input type="password" name="confirm" placeholder="{{t "setup.confirm"}}" autocomplete="new-password" required minlength="8">
       <button type="submit">{{t "setup.save"}}</button>
@@ -76,7 +76,7 @@
   <div class="card narrow stack">
     <h1>PocketNVR <span>Bridge</span></h1>
     {{if .Error}}<p class="note error">{{.Error}}</p>{{end}}
-    <form method="post" action="/login" class="stack">
+    <form method="post" action="{{.Base}}/login" class="stack">
       <input type="password" name="password" placeholder="{{t "login.password"}}" autocomplete="current-password" required autofocus>
       <button type="submit">{{t "login.submit"}}</button>
     </form>
@@ -85,7 +85,7 @@
 {{else}}
   <header>
     <h1>PocketNVR <span>Bridge</span></h1>
-    <form method="post" action="/logout" class="inline"><button class="ghost" type="submit">{{t "logout"}}</button></form>
+    <form method="post" action="{{.Base}}/logout" class="inline"><button class="ghost" type="submit">{{t "logout"}}</button></form>
   </header>
 
   {{if .Error}}<p class="note error">{{.Error}}</p>{{end}}
@@ -94,11 +94,11 @@
   <div class="card">
     <h2>{{t "new.title" .Name}}</h2>
     <div class="qr">
-      <img src="/phones/{{.ID}}/qr.png" alt="{{t "new.qrAlt"}}">
+      <img src="{{$.Base}}/phones/{{.ID}}/qr.png" alt="{{t "new.qrAlt"}}">
       <div class="stack" style="flex:1;min-width:220px">
         <p>{{tHTML "new.howTo"}}</p>
         {{if $.ImportLink}}<p><a class="button" href="{{$.ImportLink}}">{{t "new.open"}}</a><br><span class="small muted">{{t "new.openHint"}}</span></p>{{end}}
-        <p><a class="button ghost" href="/phones/{{.ID}}/conf">{{t "new.download"}}</a></p>
+        <p><a class="button ghost" href="{{$.Base}}/phones/{{.ID}}/conf">{{t "new.download"}}</a></p>
         <p class="small muted">{{t "new.expiry"}}</p>
       </div>
     </div>
@@ -133,8 +133,8 @@
           <div class="small muted">{{t "phones.lastSeen"}} <span id="seen-{{.ID}}">{{ago .Stats.LastHandshake}}</span> · <span id="traffic-{{.ID}}">{{bytes .Stats.Total}}</span></div>
         </div>
         <div class="row">
-          <form method="post" action="/phones/{{.ID}}/rekey" class="inline"><button class="ghost" type="submit">{{t "phones.newQR"}}</button></form>
-          <form method="post" action="/phones/{{.ID}}/delete" class="inline" onsubmit="return confirm({{t "phones.confirm" .Name}})"><button class="danger" type="submit">{{t "phones.delete"}}</button></form>
+          <form method="post" action="{{$.Base}}/phones/{{.ID}}/rekey" class="inline"><button class="ghost" type="submit">{{t "phones.newQR"}}</button></form>
+          <form method="post" action="{{$.Base}}/phones/{{.ID}}/delete" class="inline" onsubmit="return confirm({{t "phones.confirm" .Name}})"><button class="danger" type="submit">{{t "phones.delete"}}</button></form>
         </div>
       </li>
       {{end}}
@@ -142,7 +142,7 @@
     {{else}}
     <p class="muted">{{t "phones.none"}}</p>
     {{end}}
-    <form method="post" action="/phones" class="row" style="margin-top:14px">
+    <form method="post" action="{{$.Base}}/phones" class="row" style="margin-top:14px">
       <input type="text" name="name" placeholder="{{t "phones.name"}}" maxlength="40" style="flex:1;min-width:200px">
       <button type="submit">{{t "phones.add"}}</button>
     </form>
@@ -154,7 +154,7 @@
     (function () {
       var L = { ok: {{t "status.reachable"}}, down: {{t "status.down"}}, unknown: {{t "status.unknown"}} };
       function refresh() {
-        fetch('/api/status', { credentials: 'same-origin' }).then(function (r) {
+        fetch({{$.Base}} + '/api/status', { credentials: 'same-origin' }).then(function (r) {
           if (r.status === 401) { location.reload(); return null; }
           return r.json();
         }).then(function (s) {

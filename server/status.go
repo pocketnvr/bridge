@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/netip"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -81,6 +82,7 @@ func (p *PublicAddr) Endpoint() string {
 
 type FrigateHealth struct {
 	addr string
+	cfg  *Config
 
 	mu      sync.Mutex
 	ok      bool
@@ -118,6 +120,9 @@ func (h *FrigateHealth) check(ctx context.Context) {
 	c.Close()
 	if !wasOK {
 		log.Printf("Frigate reachable (%s)", h.addr)
+		if h.cfg != nil {
+			go h.cfg.detectScheme(context.Background())
+		}
 	}
 	h.ok, h.err = true, ""
 }
@@ -168,6 +173,20 @@ func staleEndpoints(phones []Phone, now netip.Addr, configured string) []staleEn
 	return out
 }
 
+func stalePortPhones(phones []Phone, port int) []string {
+	var names []string
+	for _, p := range phones {
+		_, ps, err := net.SplitHostPort(p.Endpoint)
+		if err != nil {
+			continue
+		}
+		if n, err := strconv.Atoi(ps); err == nil && n != port {
+			names = append(names, p.Name)
+		}
+	}
+	return names
+}
+
 func diagnose(lang string, cfg *Config, pub PublicSnapshot, up *UPnPStatus, frigateOK bool, frigateErr string, lanIP string, phones []Phone) []Warning {
 	var w []Warning
 	if !frigateOK && frigateErr != "" {
@@ -187,6 +206,9 @@ func diagnose(lang string, cfg *Config, pub PublicSnapshot, up *UPnPStatus, frig
 		for _, s := range staleEndpoints(phones, pub.IP, pub.Configured) {
 			w = append(w, Warning{"error", tr(lang, key, s.old, pub.IP, strings.Join(s.names, ", "))})
 		}
+	}
+	if names := stalePortPhones(phones, cfg.PublicPort); len(names) > 0 {
+		w = append(w, Warning{"error", tr(lang, "warn.stalePort", cfg.PublicPort, strings.Join(names, ", "))})
 	}
 	manual := tr(lang, "warn.manual", cfg.PublicPort, lanIP, cfg.WGPort)
 	switch {

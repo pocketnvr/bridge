@@ -30,6 +30,7 @@ type stateData struct {
 	AdminHash  string  `json:"adminHash,omitempty"`
 	SessionKey string  `json:"sessionKey"`
 	LastAddr   string  `json:"lastAddr,omitempty"`
+	WGPort     int     `json:"wgPort,omitempty"`
 }
 
 type Store struct {
@@ -140,6 +141,22 @@ func (s *Store) RevokeSessions() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.d.SessionKey = randomB64(32)
+	return s.saveLocked()
+}
+
+func (s *Store) WGPort() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.d.WGPort
+}
+
+func (s *Store) SetWGPort(p int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.d.WGPort == p {
+		return nil
+	}
+	s.d.WGPort = p
 	return s.saveLocked()
 }
 

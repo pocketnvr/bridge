@@ -187,6 +187,14 @@ var messages = map[string]map[string]string{
 		langIT: "Il Suo indirizzo pubblico è cambiato (%s, ora %s): i telefoni configurati con quello vecchio non possono più connettersi (%s). Usi «Nuovo QR» per ciascuno di essi.",
 		langNL: "Uw openbare adres is gewijzigd (%s, nu %s): de telefoons die met het oude adres zijn ingesteld, kunnen geen verbinding meer maken (%s). Gebruik voor elk ervan “Nieuwe QR”.",
 	},
+	"warn.stalePort": {
+		langEN: "The WireGuard port is now %d: the phones set up before can't connect any more (%s). Use “New QR” for each of them.",
+		langFR: "Le port WireGuard est maintenant %d : les téléphones configurés avant ne peuvent plus se connecter (%s). Utilisez « Nouveau QR » pour chacun d'eux.",
+		langDE: "Der WireGuard-Port ist jetzt %d: Die vorher eingerichteten Telefone können sich nicht mehr verbinden (%s). Verwenden Sie für jedes von ihnen „Neuer QR“.",
+		langES: "El puerto WireGuard ahora es %d: los teléfonos configurados antes ya no pueden conectarse (%s). Use «Nuevo QR» para cada uno de ellos.",
+		langIT: "La porta WireGuard ora è %d: i telefoni configurati prima non possono più connettersi (%s). Usi «Nuovo QR» per ciascuno di essi.",
+		langNL: "De WireGuard-poort is nu %d: de telefoons die eerder zijn ingesteld, kunnen geen verbinding meer maken (%s). Gebruik voor elk ervan “Nieuwe QR”.",
+	},
 	"warn.manual": {
 		langEN: "On your router, forward UDP port %d to %s, port %d.",
 		langFR: "Sur votre box, redirigez le port UDP %d vers %s, port %d.",

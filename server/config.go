@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,12 +28,19 @@ type Config struct {
 	DataDir      string
 	ClientNet    netip.Prefix
 	AllowedHosts []string
+	Addon        bool
+
+	wgPortSet     bool
+	publicPortSet bool
 
 	frigate     *url.URL
 	forwardAddr string
 	phoneIP     netip.Addr
 	frigatePort uint16
-	phoneURL    string
+	schemeSet   bool
+
+	mu       sync.Mutex
+	phoneURL string
 }
 
 type haOptions struct {
@@ -67,6 +76,7 @@ func LoadConfig() (*Config, error) {
 		c.PublicHost = o.PublicHost
 		if o.WGPort > 0 {
 			c.WGPort = o.WGPort
+			c.wgPortSet = true
 		}
 		if o.PublicPort > 0 {
 			c.PublicPort = o.PublicPort
@@ -121,6 +131,11 @@ func LoadConfig() (*Config, error) {
 		}
 		c.ClientNet = p.Masked()
 	}
+	if strings.TrimSpace(os.Getenv("WG_PORT")) != "" {
+		c.wgPortSet = true
+	}
+	c.Addon = addon
+	c.publicPortSet = c.PublicPort != 0
 	if c.PublicPort == 0 {
 		c.PublicPort = c.WGPort
 	}
@@ -142,7 +157,8 @@ func LoadConfig() (*Config, error) {
 }
 
 func (c *Config) resolveFrigate(ctx context.Context) error {
-	u, err := url.Parse(strings.TrimRight(strings.TrimSpace(c.FrigateURL), "/"))
+	raw, explicit := normalizeFrigateURL(c.FrigateURL)
+	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
 		return fmt.Errorf("FRIGATE_URL=%q invalid (e.g. https://192.168.1.20:8971)", c.FrigateURL)
 	}
@@ -155,6 +171,7 @@ func (c *Config) resolveFrigate(ctx context.Context) error {
 		return fmt.Errorf("FRIGATE_URL=%q: invalid port", c.FrigateURL)
 	}
 	c.frigate = u
+	c.schemeSet = explicit
 	c.frigatePort = uint16(p)
 	c.forwardAddr = net.JoinHostPort(u.Hostname(), port)
 
@@ -185,6 +202,65 @@ func (c *Config) resolveFrigate(ctx context.Context) error {
 	c.phoneIP = ip
 	c.phoneURL = fmt.Sprintf("%s://%s", u.Scheme, net.JoinHostPort(ip.String(), port))
 	return nil
+}
+
+func normalizeFrigateURL(raw string) (string, bool) {
+	s := strings.TrimRight(strings.TrimSpace(raw), "/")
+	if s == "" || strings.Contains(s, "://") {
+		return s, true
+	}
+	host, rest := s, ""
+	if i := strings.IndexAny(s, "/?#"); i >= 0 {
+		host, rest = s[:i], s[i:]
+	}
+	if _, _, err := net.SplitHostPort(host); err != nil {
+		host = net.JoinHostPort(strings.Trim(host, "[]"), "8971")
+	}
+	return "https://" + host + rest, false
+}
+
+func (c *Config) PhoneURL() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.phoneURL
+}
+
+func (c *Config) detectScheme(ctx context.Context) {
+	found := probeScheme(ctx, c.forwardAddr)
+	if found == "" {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	scheme, hostport, ok := strings.Cut(c.phoneURL, "://")
+	if !ok || scheme == found {
+		return
+	}
+	if c.schemeSet {
+		log.Printf("Frigate answers in %s on port %d, not %s: phones will use %s://%s", strings.ToUpper(found), c.frigatePort, strings.ToUpper(scheme), found, hostport)
+	} else {
+		log.Printf("Frigate answers in %s: phones will use %s://%s", strings.ToUpper(found), found, hostport)
+	}
+	c.phoneURL = found + "://" + hostport
+}
+
+func probeScheme(ctx context.Context, addr string) string {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return ""
+	}
+	defer conn.Close()
+	err = tls.Client(conn, &tls.Config{InsecureSkipVerify: true, ServerName: "frigate"}).HandshakeContext(ctx)
+	if err == nil {
+		return "https"
+	}
+	var notTLS tls.RecordHeaderError
+	if errors.As(err, &notTLS) {
+		return "http"
+	}
+	return ""
 }
 
 func primaryLANAddr() (netip.Addr, error) {

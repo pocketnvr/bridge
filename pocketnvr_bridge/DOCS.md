@@ -11,7 +11,7 @@ Install link (Home Assistant OS or Supervised): [Add PocketNVR Bridge to my Home
 | `frigate_url` | `https://192.168.1.20:8971` | **Leave empty with the Frigate add-on**: the Bridge uses Home Assistant's address and port 8971. The Frigate add-on doesn't publish this port by default: first enable 8971 in its Configuration tab (Network section). Frigate elsewhere: its IP address and port 8971. Never port 5000 (no authentication). |
 | `public_host` | `home.duckdns.org` | Optional. Dynamic DNS name if your public address changes. |
 | `upnp` | `true` | Opens the UDP port on the router automatically. |
-| `wg_port` / `public_port` | `51820` | Optional. UDP port used, and port seen from the Internet. |
+| `wg_port` / `public_port` | `51820` | Optional. UDP port used, and port seen from the Internet. Empty: 51820, or the next free port if another WireGuard add-on uses it. |
 
 ## Add a phone
 
@@ -26,10 +26,8 @@ The Bridge only gives access to Frigate: the rest of your network can't be reach
 
 | Situation | Fix |
 |---|---|
-| Log: `FRIGATE_URL="..." invalid` | Write the full address, with `http://` or `https://` and the port: `https://192.168.1.20:8971`. |
-| Log: `bind: address already in use` | Another program already uses UDP port 51820, often the WireGuard add-on. Set `wg_port` (`WG_PORT` with Docker) to `51821`. In Home Assistant, turn on "Show unused optional configuration options" to see it. |
-| "Open web UI" doesn't load | You reach Home Assistant through a domain name or Nabu Casa, and the admin page only answers on the local network. From home, open `http://<Home Assistant's local IP>:8765`. |
-| App: "first record does not look like a TLS handshake" | Frigate answers in plain HTTP on port 8971 (TLS turned off in Frigate). Put `http://` in `frigate_url`, restart, then **New QR**. The tunnel still encrypts everything. |
+| Log: `WireGuard on UDP port ... address already in use` | `wg_port` is set to a port another program already uses, often the WireGuard add-on. Empty `wg_port`: the Bridge then picks a free port by itself (Docker: remove `WG_PORT`). |
+| App: "first record does not look like a TLS handshake" | The phone was set up before Bridge 1.1.1, and Frigate answers in plain HTTP. Use **New QR**, or update PocketNVR. |
 | App: Frigate doesn't answer, address ending in `:8765` | 8765 is the Bridge's admin page. Frigate's address uses its own port, usually 8971. |
 
 More cases: [README](https://github.com/pocketnvr/bridge#cant-connect).
@@ -51,10 +49,8 @@ Le Bridge ne donne accès qu'à Frigate : le reste de votre réseau n'est pas jo
 
 | Situation | Solution |
 |---|---|
-| Journal : `FRIGATE_URL="..." invalid` | Écrivez l'adresse complète, avec `http://` ou `https://` et le port : `https://192.168.1.20:8971`. |
-| Journal : `bind: address already in use` | Un autre programme utilise déjà le port UDP 51820, souvent l'application WireGuard. Mettez `wg_port` (`WG_PORT` avec Docker) à `51821`. Dans Home Assistant, activez « Afficher les options de configuration facultatives inutilisées » pour le voir. |
-| « Ouvrir l'interface web » ne charge pas | Vous accédez à Home Assistant par un nom de domaine ou par Nabu Casa, et la page d'administration ne répond que sur le réseau local. À la maison, ouvrez `http://<IP locale de Home Assistant>:8765`. |
-| Appli : « first record does not look like a TLS handshake » | Frigate répond en HTTP simple sur le port 8971 (TLS désactivé dans Frigate). Mettez `http://` dans `frigate_url`, redémarrez, puis **Nouveau QR**. Le tunnel chiffre toujours tout. |
+| Journal : `WireGuard on UDP port ... address already in use` | `wg_port` indique un port déjà utilisé par un autre programme, souvent l'application WireGuard. Videz `wg_port` : le Bridge choisit alors seul un port libre (Docker : retirez `WG_PORT`). |
+| Appli : « first record does not look like a TLS handshake » | Le téléphone a été configuré avant le Bridge 1.1.1, et Frigate répond en HTTP simple. Utilisez **Nouveau QR**, ou mettez à jour PocketNVR. |
 | Appli : Frigate ne répond pas, adresse finissant par `:8765` | 8765 est la page d'administration du Bridge. L'adresse de Frigate utilise son propre port, en général 8971. |
 
 Autres cas : [README](https://github.com/pocketnvr/bridge/blob/main/README.fr.md#ça-ne-se-connecte-pas-).

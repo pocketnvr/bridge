@@ -71,7 +71,7 @@ Téléphone perdu : **Supprimer**. Son accès est coupé immédiatement.
 |---|---|---|
 | `FRIGATE_URL` | (obligatoire ; module Home Assistant : module Frigate sur le port 8971) | Adresse de Frigate **avec son IP**, port 8971 : `https://IP:8971`. Si Frigate est sur la même machine, `https://localhost:8971` fonctionne aussi. **Évite le port 5000** : il n'a pas d'authentification, et chaque téléphone ajouté y serait administrateur de Frigate. |
 | `PUBLIC_HOST` | détectée | Nom DynDNS (ex. `maison.duckdns.org`) ou IP publique fixe. Conseillé si votre IP change. |
-| `WG_PORT` | `51820` | Port UDP sur lequel le Bridge écoute. |
+| `WG_PORT` | `51820`, ou le port libre suivant | Port UDP sur lequel le Bridge écoute. Vide : 51820, ou le suivant libre si un autre programme l'utilise (le Bridge le garde). |
 | `PUBLIC_PORT` | = `WG_PORT` | Port UDP vu depuis Internet (si vous redirigez un autre port sur la box). |
 | `WEB_PORT` | `8765` | Page d'administration (réseau local). |
 | `UPNP` | `true` | Ouvre le port automatiquement sur la box. |
@@ -84,10 +84,8 @@ La page d'administration (en français, en anglais, en allemand, en espagnol, en
 
 | Situation | Solution |
 |---|---|
-| Journal : `FRIGATE_URL="..." invalid` | Écrivez l'adresse complète, avec `http://` ou `https://` et le port : `https://192.168.1.20:8971`. |
-| Journal : `bind: address already in use` | Un autre programme utilise déjà le port UDP 51820, souvent l'application WireGuard. Mettez `wg_port` (`WG_PORT` avec Docker) à `51821`. Dans Home Assistant, activez « Afficher les options de configuration facultatives inutilisées » pour le voir. |
-| « Ouvrir l'interface web » ne charge pas | Vous accédez à Home Assistant par un nom de domaine ou par Nabu Casa, et la page d'administration ne répond que sur le réseau local. À la maison, ouvrez `http://<IP locale de Home Assistant>:8765`. |
-| Appli : « first record does not look like a TLS handshake » | Frigate répond en HTTP simple sur le port 8971 (TLS désactivé dans Frigate). Mettez `http://` dans `frigate_url`, redémarrez, puis **Nouveau QR**. Le tunnel chiffre toujours tout. |
+| Journal : `WireGuard on UDP port ... address already in use` | `wg_port` indique un port déjà utilisé par un autre programme, souvent l'application WireGuard. Videz `wg_port` : le Bridge choisit alors seul un port libre (Docker : retirez `WG_PORT`). |
+| Appli : « first record does not look like a TLS handshake » | Le téléphone a été configuré avant le Bridge 1.1.1, et Frigate répond en HTTP simple. Utilisez **Nouveau QR**, ou mettez à jour PocketNVR. |
 | Appli : Frigate ne répond pas, adresse finissant par `:8765` | 8765 est la page d'administration du Bridge. L'adresse de Frigate utilise son propre port, en général 8971. |
 | « Ouverture automatique du port impossible » | Activez l'UPnP sur la box, ou redirigez vous-même le port UDP indiqué vers la machine du Bridge. |
 | « Double NAT » | Un autre routeur est devant votre box (ou l'inverse). Redirigez le port UDP sur le routeur de tête. |
