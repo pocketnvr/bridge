@@ -139,7 +139,7 @@ func (t *Tunnel) listen() error {
 		}
 	}
 	if err := t.dev.IpcSet(fmt.Sprintf("listen_port=%d\n", chosen)); err != nil {
-		return err
+		return fmt.Errorf("WireGuard on UDP port %d: %w (another WireGuard? set wg_port or WG_PORT to a free port)", chosen, err)
 	}
 	cfg.WGPort = chosen
 	if !cfg.publicPortSet {

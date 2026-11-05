@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.1
+## 1.1.2
 
 - The admin page opens inside Home Assistant (Open web UI, or PocketNVR in the sidebar), from anywhere, even through a domain name or Nabu Casa.
 - `frigate_url` accepts an address without `http://` or `https://`, and without a port (8971).

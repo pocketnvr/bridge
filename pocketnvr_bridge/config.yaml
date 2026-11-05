@@ -1,5 +1,5 @@
 name: PocketNVR Bridge
-version: "1.1.1"
+version: "1.1.2"
 slug: pocketnvr_bridge
 description: Encrypted remote access to Frigate for the PocketNVR app, without exposing Frigate to the Internet.
 url: https://github.com/pocketnvr/bridge
