@@ -1,0 +1,25 @@
+configuration:
+  frigate_url:
+    name: Dirección de Frigate
+    description: Déjelo vacío si Frigate es el complemento de Home Assistant (puerto 8971 activado en su sección Red). El Bridge usa entonces la dirección de Home Assistant. Si no, la IP de Frigate y el puerto 8971 (p. ej., https://192.168.1.20:8971).
+  public_host:
+    name: Dirección pública
+    description: Opcional. Nombre de DNS dinámico o IP pública fija. Se detecta automáticamente si está vacío.
+  upnp:
+    name: UPnP
+    description: Abre automáticamente el puerto UDP en el router.
+  wg_port:
+    name: Puerto WireGuard
+    description: Opcional. Puerto UDP en el que escucha el Bridge (51820 por defecto).
+  public_port:
+    name: Puerto público
+    description: Opcional. Puerto UDP visto desde Internet, si redirige otro distinto.
+  web_port:
+    name: Puerto de la página de administración
+    description: Opcional. Puerto de la página de administración (8765 por defecto).
+  allowed_hosts:
+    name: Nombres de host permitidos
+    description: Opcional. Nombres adicionales aceptados para la página de administración, separados por comas.
+network:
+  8765/tcp: Página de administración (añadir teléfonos)
+  51820/udp: WireGuard

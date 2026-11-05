@@ -1,0 +1,265 @@
+blueprint:
+  name: PocketNVR - Frigate alerts
+  description: >-
+    A notification on your phones for each Frigate alert, with its picture;
+    tapping it opens the recording in PocketNVR. Needs Frigate and Home Assistant
+    on the same MQTT broker, and the Home Assistant app on the phones. The picture
+    needs Home Assistant's Frigate integration.
+  domain: automation
+  author: PocketNVR
+  source_url: https://github.com/pocketnvr/bridge/blob/main/blueprints/pocketnvr_frigate_alerts.yaml
+  homeassistant:
+    min_version: "2024.10.0"
+  input:
+    phones_section:
+      name: Phones
+      icon: mdi:cellphone-message
+      input:
+        phones:
+          name: Phones to notify
+          description: Devices with the Home Assistant app.
+          selector:
+            device:
+              multiple: true
+              filter:
+                - integration: mobile_app
+        language:
+          name: Language of the notifications
+          default: en
+          selector:
+            select:
+              mode: dropdown
+              options:
+                - { label: "Deutsch", value: de }
+                - { label: "English", value: en }
+                - { label: "Español", value: es }
+                - { label: "Français", value: fr }
+                - { label: "Italiano", value: it }
+                - { label: "Nederlands", value: nl }
+    filters_section:
+      name: What notifies you
+      icon: mdi:filter-variant
+      input:
+        cameras:
+          name: Cameras
+          description: >-
+            Leave empty for every camera. Lists the cameras of Home Assistant's
+            Frigate integration; without it, see "Other cameras" under Advanced.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - integration: frigate
+                  domain: camera
+        objects:
+          name: Objects
+          description: Leave empty for every object. You can also type a label of your Frigate.
+          default: []
+          selector:
+            select:
+              multiple: true
+              custom_value: true
+              options:
+                - { label: "Person", value: "person" }
+                - { label: "Car", value: "car" }
+                - { label: "Motorcycle", value: "motorcycle" }
+                - { label: "Bicycle", value: "bicycle" }
+                - { label: "Bus", value: "bus" }
+                - { label: "Truck", value: "truck" }
+                - { label: "Dog", value: "dog" }
+                - { label: "Cat", value: "cat" }
+                - { label: "Bird", value: "bird" }
+                - { label: "Horse", value: "horse" }
+                - { label: "Package", value: "package" }
+                - { label: "Face", value: "face" }
+                - { label: "License plate", value: "license_plate" }
+                - { label: "Speech", value: "speech" }
+                - { label: "Bark", value: "bark" }
+                - { label: "Scream", value: "scream" }
+                - { label: "Yell", value: "yell" }
+                - { label: "Fire alarm", value: "fire_alarm" }
+                - { label: "Smoke alarm", value: "smoke_alarm" }
+                - { label: "Smoke detector", value: "smoke_detector" }
+                - { label: "Glass", value: "glass" }
+        severity:
+          name: Level
+          default: alert
+          selector:
+            select:
+              options:
+                - { label: Alerts only, value: alert }
+                - { label: Alerts and detections, value: detection }
+        zones:
+          name: Frigate zones
+          description: >-
+            Leave empty for anywhere in the picture. Type the names of the zones
+            as in Frigate's configuration.
+          default: []
+          selector:
+            select:
+              multiple: true
+              custom_value: true
+              options: []
+    when_section:
+      name: When
+      icon: mdi:home-export-outline
+      input:
+        away_people:
+          name: Only when these people are away
+          description: >-
+            Leave empty to be notified whoever is home. Pick yourself to be
+            notified only when you are out; pick everyone for when the house is empty.
+          default: []
+          selector:
+            entity:
+              multiple: true
+              filter:
+                - domain: person
+        cooldown:
+          name: Minimum time between two notifications
+          description: 0 for every alert. Counts every camera together.
+          default: 0
+          selector:
+            number:
+              min: 0
+              max: 60
+              unit_of_measurement: min
+              mode: slider
+    advanced_section:
+      name: Advanced
+      icon: mdi:cog-outline
+      collapsed: true
+      input:
+        camera_names:
+          name: Other cameras
+          description: >-
+            Cameras chosen by their name in Frigate's configuration, without
+            Home Assistant's Frigate integration. Added to "Cameras".
+          default: []
+          selector:
+            select:
+              multiple: true
+              custom_value: true
+              options: []
+        time_sensitive:
+          name: Show during Focus (iPhone)
+          description: A time-sensitive notification, shown even in most Focus modes.
+          default: true
+          selector:
+            boolean: {}
+        topic_prefix:
+          name: MQTT topic prefix
+          description: Frigate's mqtt.topic_prefix.
+          default: frigate
+          selector:
+            text: {}
+        site:
+          name: PocketNVR site
+          description: >-
+            With several Frigate servers in PocketNVR: the name of this one's
+            site, so that the notification opens it. Leave empty otherwise.
+          default: ""
+          selector:
+            text: {}
+
+mode: parallel
+max: 10
+max_exceeded: silent
+
+trigger_variables:
+  pnvr_topic: !input topic_prefix
+triggers:
+  - trigger: mqtt
+    topic: "{{ pnvr_topic }}/reviews"
+
+variables:
+  pnvr_phones: !input phones
+  pnvr_language: !input language
+  pnvr_camera_entities: !input cameras
+  pnvr_camera_names: !input camera_names
+  pnvr_objects: !input objects
+  pnvr_severity: !input severity
+  pnvr_zones: !input zones
+  pnvr_away: !input away_people
+  pnvr_cooldown: !input cooldown
+  pnvr_time_sensitive: !input time_sensitive
+  pnvr_site: !input site
+  pnvr_cameras: >-
+    {%- set ns = namespace(names=pnvr_camera_names | list) -%}
+    {%- for e in pnvr_camera_entities -%}
+      {%- set dev = device_id(e) -%}
+      {%- set ids = ((device_attr(dev, 'identifiers') if dev else none) or []) | selectattr(0, 'eq', 'frigate') | map(attribute=1) | list -%}
+      {%- set ns.names = ns.names + [ids[0].split(':')[-1] if ids else e.split('.')[1]] -%}
+    {%- endfor -%}
+    {{ ns.names }}
+  pnvr_match: >-
+    {%- set ns = namespace(ok=[]) -%}
+    {%- for r in [trigger.payload_json.before or {}, trigger.payload_json.after or {}] -%}
+      {%- set d = r.data or {} -%}
+      {%- set objs = ((d.objects or []) + (d.audio or [])) | map('replace', '-verified', '') | list -%}
+      {%- set ns.ok = ns.ok + [
+        (r.severity == 'alert' or (pnvr_severity == 'detection' and r.severity == 'detection'))
+        and (not pnvr_cameras or r.camera in pnvr_cameras)
+        and (not pnvr_objects or objs | select('in', pnvr_objects) | list | count > 0)
+        and (not pnvr_zones or (d.zones or []) | select('in', pnvr_zones) | list | count > 0)
+      ] -%}
+    {%- endfor -%}
+    {{ ns.ok }}
+
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.payload_json.type in ['new', 'update'] and pnvr_match[1]
+         and (trigger.payload_json.type == 'new' or not pnvr_match[0]) }}
+  - condition: template
+    value_template: "{{ pnvr_away | select('is_state', 'home') | list | count == 0 }}"
+  - condition: template
+    value_template: >-
+      {{ (pnvr_cooldown | int(0)) == 0 or this.attributes.last_triggered is none
+         or (now() - this.attributes.last_triggered).total_seconds() >= (pnvr_cooldown | int(0)) * 60 }}
+
+actions:
+  - variables:
+      review: "{{ trigger.payload_json.after }}"
+      pnvr_labels:
+        fr: { "person": "Personne", "car": "Voiture", "motorcycle": "Moto", "bicycle": "Vélo", "truck": "Camion", "dog": "Chien", "cat": "Chat", "bird": "Oiseau", "horse": "Cheval", "package": "Colis", "face": "Visage", "license_plate": "Plaque", "speech": "Voix", "bark": "Aboiement", "scream": "Cri", "yell": "Cri", "fire_alarm": "Alarme incendie", "smoke_alarm": "Détecteur de fumée", "smoke_detector": "Détecteur de fumée", "glass": "Bris de verre", "an_post": "An Post", "canada_post": "Canada Post", "dhl": "DHL", "dpd": "DPD", "fedex": "FedEx", "gls": "GLS", "nzpost": "NZ Post", "postnl": "PostNL", "postnord": "PostNord", "royal_mail": "Royal Mail", "ups": "UPS", "usps": "USPS" }
+        en: { "an_post": "An Post", "canada_post": "Canada Post", "dhl": "DHL", "dpd": "DPD", "fedex": "FedEx", "gls": "GLS", "nzpost": "NZ Post", "postnl": "PostNL", "postnord": "PostNord", "royal_mail": "Royal Mail", "ups": "UPS", "usps": "USPS" }
+        de: { "car": "Auto", "motorcycle": "Motorrad", "bicycle": "Fahrrad", "truck": "Lkw", "dog": "Hund", "cat": "Katze", "bird": "Vogel", "horse": "Pferd", "package": "Paket", "face": "Gesicht", "license_plate": "Kennzeichen", "speech": "Stimme", "bark": "Bellen", "scream": "Schrei", "yell": "Schrei", "fire_alarm": "Feueralarm", "smoke_alarm": "Rauchmelder", "smoke_detector": "Rauchmelder", "glass": "Glasbruch", "an_post": "An Post", "canada_post": "Canada Post", "dhl": "DHL", "dpd": "DPD", "fedex": "FedEx", "gls": "GLS", "nzpost": "NZ Post", "postnl": "PostNL", "postnord": "PostNord", "royal_mail": "Royal Mail", "ups": "UPS", "usps": "USPS" }
+        es: { "person": "Persona", "car": "Coche", "motorcycle": "Moto", "bicycle": "Bicicleta", "bus": "Autobús", "truck": "Camión", "dog": "Perro", "cat": "Gato", "bird": "Pájaro", "horse": "Caballo", "package": "Paquete", "face": "Rostro", "license_plate": "Matrícula", "speech": "Voz", "bark": "Ladrido", "scream": "Grito", "yell": "Grito", "fire_alarm": "Alarma de incendio", "smoke_alarm": "Detector de humo", "smoke_detector": "Detector de humo", "glass": "Rotura de cristal", "an_post": "An Post", "canada_post": "Canada Post", "dhl": "DHL", "dpd": "DPD", "fedex": "FedEx", "gls": "GLS", "nzpost": "NZ Post", "postnl": "PostNL", "postnord": "PostNord", "royal_mail": "Royal Mail", "ups": "UPS", "usps": "USPS" }
+        it: { "person": "Persona", "car": "Auto", "motorcycle": "Moto", "bicycle": "Bicicletta", "bus": "Autobus", "truck": "Camion", "dog": "Cane", "cat": "Gatto", "bird": "Uccello", "horse": "Cavallo", "package": "Pacco", "face": "Viso", "license_plate": "Targa", "speech": "Voce", "bark": "Abbaio", "scream": "Urlo", "yell": "Urlo", "fire_alarm": "Allarme antincendio", "smoke_alarm": "Rilevatore di fumo", "smoke_detector": "Rilevatore di fumo", "glass": "Vetro rotto", "an_post": "An Post", "canada_post": "Canada Post", "dhl": "DHL", "dpd": "DPD", "fedex": "FedEx", "gls": "GLS", "nzpost": "NZ Post", "postnl": "PostNL", "postnord": "PostNord", "royal_mail": "Royal Mail", "ups": "UPS", "usps": "USPS" }
+        nl: { "person": "Persoon", "car": "Auto", "motorcycle": "Motor", "bicycle": "Fiets", "truck": "Vrachtwagen", "dog": "Hond", "cat": "Kat", "bird": "Vogel", "horse": "Paard", "package": "Pakket", "face": "Gezicht", "license_plate": "Kenteken", "speech": "Stem", "bark": "Geblaf", "scream": "Geschreeuw", "yell": "Geschreeuw", "fire_alarm": "Brandalarm", "smoke_alarm": "Rookmelder", "smoke_detector": "Rookmelder", "glass": "Glasbreuk", "an_post": "An Post", "canada_post": "Canada Post", "dhl": "DHL", "dpd": "DPD", "fedex": "FedEx", "gls": "GLS", "nzpost": "NZ Post", "postnl": "PostNL", "postnord": "PostNord", "royal_mail": "Royal Mail", "ups": "UPS", "usps": "USPS" }
+      pnvr_alert:
+        fr: "Alerte"
+        en: "Alert"
+        de: "Alarm"
+        es: "Alerta"
+        it: "Avviso"
+        nl: "Melding"
+  - variables:
+      names: "{{ pnvr_labels.get(pnvr_language, pnvr_labels.en) }}"
+      what: >-
+        {% set ns = namespace(parts=[]) %}{% for s in review.data.sub_labels | default([], true) %}{% set ns.parts = ns.parts + [s] %}{% endfor %}{% for o in ((review.data.objects | default([], true)) + (review.data.audio | default([], true))) | map('replace', '-verified', '') | unique %}{% set ns.parts = ns.parts + [names.get(o, o | replace('_', ' ') | capitalize)] %}{% endfor %}{{ ns.parts | unique | join(', ') if ns.parts else pnvr_alert.get(pnvr_language, pnvr_alert.en) }}
+      camera_name: >-
+        {{ state_attr('camera.' ~ (review.camera | slugify), 'friendly_name') or review.camera | replace('_', ' ') | capitalize }}
+      image_id: "{{ review.data.detections[0] if review.data.detections else '' }}"
+      link: >-
+        pocketnvr://review?id={{ review.id }}{{ '&site=' ~ (pnvr_site | urlencode) if pnvr_site else '' }}
+  - repeat:
+      for_each: "{{ pnvr_phones }}"
+      sequence:
+        - action: "notify.mobile_app_{{ device_attr(repeat.item, 'name') | slugify }}"
+          continue_on_error: true
+          data:
+            title: "{{ camera_name }}"
+            message: "{{ what }}"
+            data:
+              url: "{{ link }}"
+              clickAction: "deep-link://{{ link }}"
+              image: "/api/frigate/notifications/{{ image_id }}/thumbnail.jpg"
+              tag: "pocketnvr-{{ review.id }}"
+              group: "pocketnvr-{{ review.camera }}"
+              push:
+                interruption-level: "{{ 'time-sensitive' if pnvr_time_sensitive else 'active' }}"
+              ttl: 0
+              priority: high

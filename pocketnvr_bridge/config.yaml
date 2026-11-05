@@ -1,0 +1,32 @@
+name: PocketNVR Bridge
+version: "1.1.0"
+slug: pocketnvr_bridge
+description: Encrypted remote access to Frigate for the PocketNVR app, without exposing Frigate to the Internet.
+url: https://github.com/pocketnvr/bridge
+arch:
+  - aarch64
+  - amd64
+image: ghcr.io/pocketnvr/bridge
+init: false
+startup: application
+boot: auto
+host_network: true
+webui: "http://[HOST]:[PORT:8765]"
+ports:
+  8765/tcp: 8765
+  51820/udp: 51820
+ports_description:
+  8765/tcp: Admin page (add phones)
+  51820/udp: WireGuard
+options:
+  frigate_url: ""
+  public_host: ""
+  upnp: true
+schema:
+  frigate_url: str?
+  public_host: str?
+  wg_port: port?
+  public_port: port?
+  web_port: port?
+  upnp: bool
+  allowed_hosts: str?

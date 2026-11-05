@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="{{t "html.lang"}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PocketNVR Bridge</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #ffffff; --border: #e3e6ea; --text: #15181d; --muted: #5f6670;
+    --accent: #1f6feb; --ok: #1a7f37; --warn: #9a6700; --err: #cf222e; --info: #0969da;
+    --warn-bg: #fff8c5; --err-bg: #ffebe9; --info-bg: #ddf4ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0d10; --surface: #15181d; --border: #262a31; --text: #e8eaed; --muted: #9aa0a6;
+      --accent: #388bfd; --ok: #3fb950; --warn: #d29922; --err: #f85149; --info: #58a6ff;
+      --warn-bg: #2b2111; --err-bg: #3a1d1d; --info-bg: #0d2238;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.2px; }
+  h1 span { color: var(--muted); font-weight: 500; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  .grid { display: grid; grid-template-columns: 170px 1fr; gap: 8px 14px; }
+  .grid div:nth-child(odd) { color: var(--muted); }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; word-break: break-all; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; background: var(--muted); }
+  .dot.ok { background: var(--ok); } .dot.err { background: var(--err); }
+  .note { border-radius: 10px; padding: 10px 12px; margin: 0 0 10px; font-size: 14px; }
+  .note.error { background: var(--err-bg); color: var(--err); }
+  .note.warn { background: var(--warn-bg); color: var(--warn); }
+  .note.info { background: var(--info-bg); color: var(--info); }
+  form.inline { display: inline; }
+  input[type=text], input[type=password] {
+    width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 15px;
+  }
+  button, .button {
+    display: inline-block; border: 0; border-radius: 10px; padding: 10px 16px; font-size: 14px; font-weight: 600;
+    background: var(--accent); color: #fff; cursor: pointer; text-decoration: none;
+  }
+  button.ghost, .button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
+  button.danger { background: transparent; color: var(--err); border: 1px solid var(--border); }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .stack > * + * { margin-top: 10px; }
+  .phones { list-style: none; margin: 0; padding: 0; }
+  .phones li { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .phones li:first-child { border-top: 0; }
+  .qr { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+  .qr img { width: 240px; height: 240px; background: #fff; padding: 10px; border-radius: 12px; image-rendering: pixelated; }
+  .narrow { max-width: 380px; margin: 60px auto; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; gap: 2px; } .grid div:nth-child(even) { margin-bottom: 8px; } }
+</style>
+</head>
+<body>
+<main>
+{{if eq .View "setup"}}
+  <div class="card narrow stack">
+    <h1>PocketNVR <span>Bridge</span></h1>
+    <p class="muted">{{t "setup.intro"}}</p>
+    {{if .Error}}<p class="note error">{{.Error}}</p>{{end}}
+    <form method="post" action="/setup" class="stack">
+      <input type="password" name="password" placeholder="{{t "setup.password"}}" autocomplete="new-password" required minlength="8" autofocus>
+      <input type="password" name="confirm" placeholder="{{t "setup.confirm"}}" autocomplete="new-password" required minlength="8">
+      <button type="submit">{{t "setup.save"}}</button>
+    </form>
+  </div>
+
+{{else if eq .View "login"}}
+  <div class="card narrow stack">
+    <h1>PocketNVR <span>Bridge</span></h1>
+    {{if .Error}}<p class="note error">{{.Error}}</p>{{end}}
+    <form method="post" action="/login" class="stack">
+      <input type="password" name="password" placeholder="{{t "login.password"}}" autocomplete="current-password" required autofocus>
+      <button type="submit">{{t "login.submit"}}</button>
+    </form>
+  </div>
+
+{{else}}
+  <header>
+    <h1>PocketNVR <span>Bridge</span></h1>
+    <form method="post" action="/logout" class="inline"><button class="ghost" type="submit">{{t "logout"}}</button></form>
+  </header>
+
+  {{if .Error}}<p class="note error">{{.Error}}</p>{{end}}
+
+  {{with .New}}
+  <div class="card">
+    <h2>{{t "new.title" .Name}}</h2>
+    <div class="qr">
+      <img src="/phones/{{.ID}}/qr.png" alt="{{t "new.qrAlt"}}">
+      <div class="stack" style="flex:1;min-width:220px">
+        <p>{{tHTML "new.howTo"}}</p>
+        {{if $.ImportLink}}<p><a class="button" href="{{$.ImportLink}}">{{t "new.open"}}</a><br><span class="small muted">{{t "new.openHint"}}</span></p>{{end}}
+        <p><a class="button ghost" href="/phones/{{.ID}}/conf">{{t "new.download"}}</a></p>
+        <p class="small muted">{{t "new.expiry"}}</p>
+      </div>
+    </div>
+  </div>
+  {{end}}
+
+  <div class="card">
+    <h2>{{t "status.title"}}</h2>
+    <div id="warnings">{{range .Warnings}}<p class="note {{.Level}}">{{.Text}}</p>{{end}}</div>
+    <div class="grid">
+      <div>Frigate</div>
+      <div><span id="frigate-dot" class="dot {{if .FrigateOK}}ok{{else}}err{{end}}"></span><span id="frigate-text">{{if .FrigateOK}}{{t "status.reachable"}}{{else}}{{t "status.down"}}{{end}}</span></div>
+      <div>{{t "status.phoneURL"}}</div>
+      <div class="mono">{{.PhoneURL}}</div>
+      <div>{{t "status.public"}}</div>
+      <div class="mono" id="endpoint">{{if .Endpoint}}{{.Endpoint}}{{else}}{{t "status.unknown"}}{{end}}</div>
+      <div>{{t "status.udpPort"}}</div>
+      <div>{{.PublicPort}} ({{t "status.router"}}) → {{.WGPort}} (Bridge)
+        {{with .UPnP}} · UPnP {{if .OK}}<span class="dot ok"></span>{{t "status.upnpOpen"}}{{if .Router}} {{t "status.upnpOn" .Router}}{{end}}{{else}}<span class="dot err"></span>{{t "status.upnpFailed"}}{{end}}{{else}} · {{t "status.upnpOff"}}{{end}}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>{{t "phones.title"}}</h2>
+    {{if .Phones}}
+    <ul class="phones">
+      {{range .Phones}}
+      <li>
+        <div>
+          <div><span id="dot-{{.ID}}" class="dot {{if .Online}}ok{{end}}"></span><b>{{.Name}}</b> <span class="small muted mono">{{.Address}}</span></div>
+          <div class="small muted">{{t "phones.lastSeen"}} <span id="seen-{{.ID}}">{{ago .Stats.LastHandshake}}</span> · <span id="traffic-{{.ID}}">{{bytes .Stats.Total}}</span></div>
+        </div>
+        <div class="row">
+          <form method="post" action="/phones/{{.ID}}/rekey" class="inline"><button class="ghost" type="submit">{{t "phones.newQR"}}</button></form>
+          <form method="post" action="/phones/{{.ID}}/delete" class="inline" onsubmit="return confirm({{t "phones.confirm" .Name}})"><button class="danger" type="submit">{{t "phones.delete"}}</button></form>
+        </div>
+      </li>
+      {{end}}
+    </ul>
+    {{else}}
+    <p class="muted">{{t "phones.none"}}</p>
+    {{end}}
+    <form method="post" action="/phones" class="row" style="margin-top:14px">
+      <input type="text" name="name" placeholder="{{t "phones.name"}}" maxlength="40" style="flex:1;min-width:200px">
+      <button type="submit">{{t "phones.add"}}</button>
+    </form>
+  </div>
+
+  <p class="small muted">{{t "footer"}}</p>
+
+  <script>
+    (function () {
+      var L = { ok: {{t "status.reachable"}}, down: {{t "status.down"}}, unknown: {{t "status.unknown"}} };
+      function refresh() {
+        fetch('/api/status', { credentials: 'same-origin' }).then(function (r) {
+          if (r.status === 401) { location.reload(); return null; }
+          return r.json();
+        }).then(function (s) {
+          if (!s) return;
+          document.getElementById('frigate-dot').className = 'dot ' + (s.frigateOk ? 'ok' : 'err');
+          document.getElementById('frigate-text').textContent = s.frigateOk ? L.ok : L.down;
+          document.getElementById('endpoint').textContent = s.endpoint || L.unknown;
+          (s.phones || []).forEach(function (p) {
+            var seen = document.getElementById('seen-' + p.id);
+            if (seen) seen.textContent = p.lastSeen;
+            var t = document.getElementById('traffic-' + p.id);
+            if (t) t.textContent = p.traffic;
+            var d = document.getElementById('dot-' + p.id);
+            if (d) d.className = 'dot' + (p.online ? ' ok' : '');
+          });
+          var w = document.getElementById('warnings');
+          w.textContent = '';
+          (s.warnings || []).forEach(function (x) {
+            var el = document.createElement('p');
+            el.className = 'note ' + x.Level;
+            el.textContent = x.Text;
+            w.appendChild(el);
+          });
+        }).catch(function () {});
+      }
+      setInterval(refresh, 5000);
+    })();
+  </script>
+{{end}}
+</main>
+</body>
+</html>
