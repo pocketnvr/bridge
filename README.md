@@ -14,7 +14,7 @@
 PocketNVR (iPhone) ──WireGuard, UDP 51820──► router ──► PocketNVR Bridge ──► Frigate (only)
 ```
 
-> Your router already runs a WireGuard server (UniFi, FRITZ!Box, ASUS, OpenWrt, Freebox...)? You don't need the Bridge: in the app, pick **VPN access → Router**.
+> Your router already runs a WireGuard server (UniFi, FRITZ!Box, ASUS, OpenWrt, Freebox...)? You don't need the Bridge: in the app, pick **Encrypted tunnel → Router**.
 
 ## Install
 
@@ -45,7 +45,7 @@ docker logs pocketnvr-bridge
 
 **[Add PocketNVR Bridge to my Home Assistant](https://my.home-assistant.io/redirect/supervisor_addon/?addon=8085ddbc_pocketnvr_bridge&repository_url=https%3A%2F%2Fgithub.com%2Fpocketnvr%2Fbridge)** (Home Assistant OS or Supervised)
 
-1. Open the link above (or **Install in Home Assistant** in the app, under **VPN access**), accept adding the repository, then **Install**.
+1. Open the link above (or **Install in Home Assistant** in the app, under **Encrypted tunnel**), accept adding the repository, then **Install**.
 2. Frigate is the Home Assistant add-on? Enable its port 8971 (Frigate add-on → Configuration tab → Network section) and leave `frigate_url` empty: the Bridge uses Home Assistant's address. Frigate runs elsewhere? Set `frigate_url` to its address, for example `https://192.168.1.20:8971`.
 3. Start the add-on, then **Open web UI**.
 
@@ -59,7 +59,7 @@ PocketNVR shows Frigate's alerts itself only while it is open. With the app clos
 
 1. Open `http://<server-ip>:8765` and choose an admin password.
 2. **Add a phone**: a QR code appears.
-3. In PocketNVR: **VPN access → Scan QR**. Reading the page on the iPhone itself? Use **Open in PocketNVR** instead.
+3. In PocketNVR: **Encrypted tunnel → Scan QR**. Reading the page on the iPhone itself? Use **Open in PocketNVR** instead.
 
 The QR code holds the phone's private key. The Bridge doesn't keep it: the QR code disappears after 15 minutes. After that, **New QR** generates a new key (and the old one stops working).
 

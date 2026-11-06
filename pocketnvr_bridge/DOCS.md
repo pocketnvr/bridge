@@ -18,7 +18,7 @@ Install link (Home Assistant OS or Supervised): [Add PocketNVR Bridge to my Home
 1. Start the add-on, then **Open web UI**.
 2. Choose an admin password.
 3. **Add a phone**: a QR code appears.
-4. In PocketNVR: **VPN access → Scan QR**.
+4. In PocketNVR: **Encrypted tunnel → Scan QR**.
 
 The Bridge only gives access to Frigate: the rest of your network can't be reached by the phones.
 
@@ -41,7 +41,7 @@ Lien d'installation (Home Assistant OS ou Supervised) : [Ajouter PocketNVR Bridg
 1. Module Frigate : activez son port 8971 (onglet Configuration, section Réseau) et laissez `frigate_url` vide, le Bridge prend l'adresse de Home Assistant. Frigate ailleurs : mettez son IP et le port 8971 dans `frigate_url` (ex. `https://192.168.1.20:8971`), jamais le port 5000 (sans authentification).
 2. Démarrez le module, puis **Ouvrir l'interface web** (en français si votre navigateur l'est).
 3. Choisissez un mot de passe, puis **Ajouter un téléphone**.
-4. Dans PocketNVR : **Accès VPN → Scanner le QR**.
+4. Dans PocketNVR : **Tunnel chiffré → Scanner le QR**.
 
 Le Bridge ne donne accès qu'à Frigate : le reste de votre réseau n'est pas joignable par les téléphones.
 

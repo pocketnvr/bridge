@@ -292,12 +292,12 @@ var messages = map[string]map[string]string{
 		langNL: "QR-code van de configuratie",
 	},
 	"new.howTo": {
-		langEN: "In the PocketNVR app: <b>VPN access → Scan QR</b>.",
-		langFR: "Dans l'appli PocketNVR : <b>Accès VPN → Scanner le QR</b>.",
-		langDE: "In der App PocketNVR: <b>VPN-Zugang → QR scannen</b>.",
-		langES: "En la app PocketNVR: <b>Acceso VPN → Escanear QR</b>.",
-		langIT: "Nell'app PocketNVR: <b>Accesso VPN → Scansiona QR</b>.",
-		langNL: "In de app PocketNVR: <b>VPN-toegang → QR scannen</b>.",
+		langEN: "In the PocketNVR app: <b>Encrypted tunnel → Scan QR</b>.",
+		langFR: "Dans l'appli PocketNVR : <b>Tunnel chiffré → Scanner le QR</b>.",
+		langDE: "In der App PocketNVR: <b>Verschlüsselter Tunnel → QR scannen</b>.",
+		langES: "En la app PocketNVR: <b>Túnel cifrado → Escanear QR</b>.",
+		langIT: "Nell'app PocketNVR: <b>Tunnel cifrato → Scansiona QR</b>.",
+		langNL: "In de app PocketNVR: <b>Versleutelde tunnel → QR scannen</b>.",
 	},
 	"new.open": {langEN: "Open in PocketNVR", langFR: "Ouvrir dans PocketNVR", langDE: "In PocketNVR öffnen", langES: "Abrir en PocketNVR", langIT: "Apri in PocketNVR", langNL: "Openen in PocketNVR"},
 	"new.openHint": {

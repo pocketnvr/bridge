@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.3
+
+- The admin page names the app's screen by its new title, "Encrypted tunnel" (formerly "VPN access").
+
 ## 1.1.2
 
 - The admin page opens inside Home Assistant (Open web UI, or PocketNVR in the sidebar), from anywhere, even through a domain name or Nabu Casa.

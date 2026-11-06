@@ -14,7 +14,7 @@ Accès distant **chiffré** à Frigate pour l'appli **PocketNVR**, même si votr
 PocketNVR (iPhone) ──WireGuard, UDP 51820──► box ──► PocketNVR Bridge ──► Frigate (seulement)
 ```
 
-> Votre box fait déjà serveur WireGuard (Freebox, UniFi, FRITZ!Box, ASUS, OpenWrt...) ? Le Bridge est inutile : dans l'appli, choisissez **Accès VPN → Box ou routeur**.
+> Votre box fait déjà serveur WireGuard (Freebox, UniFi, FRITZ!Box, ASUS, OpenWrt...) ? Le Bridge est inutile : dans l'appli, choisissez **Tunnel chiffré → Box ou routeur**.
 
 ## Installation
 
@@ -45,7 +45,7 @@ docker logs pocketnvr-bridge
 
 **[Ajouter PocketNVR Bridge à mon Home Assistant](https://my.home-assistant.io/redirect/supervisor_addon/?addon=8085ddbc_pocketnvr_bridge&repository_url=https%3A%2F%2Fgithub.com%2Fpocketnvr%2Fbridge)** (Home Assistant OS ou Supervised)
 
-1. Ouvrez le lien ci-dessus (ou **Installer dans Home Assistant** dans l'appli, sous **Accès VPN**), acceptez l'ajout du dépôt, puis **Installer**.
+1. Ouvrez le lien ci-dessus (ou **Installer dans Home Assistant** dans l'appli, sous **Tunnel chiffré**), acceptez l'ajout du dépôt, puis **Installer**.
 2. Frigate est le module de Home Assistant ? Activez son port 8971 (module Frigate → onglet Configuration → section Réseau) et laissez `frigate_url` vide : le Bridge prend l'adresse de Home Assistant. Frigate tourne ailleurs ? Mettez son adresse dans `frigate_url`, par exemple `https://192.168.1.20:8971`.
 3. Démarrez le module, puis **Ouvrir l'interface web**.
 
@@ -59,7 +59,7 @@ PocketNVR n'affiche lui-même les alertes de Frigate que lorsqu'il est ouvert. A
 
 1. Ouvrez `http://<ip-du-serveur>:8765` et choisissez un mot de passe d'administration.
 2. **Ajouter un téléphone** : un QR code s'affiche.
-3. Dans PocketNVR : **Accès VPN → Scanner le QR**. Vous lisez la page sur l'iPhone lui-même ? Utilisez plutôt **Ouvrir dans PocketNVR**.
+3. Dans PocketNVR : **Tunnel chiffré → Scanner le QR**. Vous lisez la page sur l'iPhone lui-même ? Utilisez plutôt **Ouvrir dans PocketNVR**.
 
 Le QR contient la clé privée du téléphone. Le Bridge ne la garde pas : le QR disparaît au bout de 15 minutes. Ensuite, **Nouveau QR** génère une nouvelle clé (et l'ancienne cesse de fonctionner).
 
